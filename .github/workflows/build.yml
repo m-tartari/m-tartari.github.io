@@ -1,4 +1,4 @@
-name: build
+name: Build
 on:
   push:
     branches: ['main']
@@ -7,28 +7,67 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    name: Setup
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          # use host's node version https://github.com/actions/setup-node
+          # node-version: 'node'
+          cache: 'npm'
+
+  build-prod:
+    runs-on: ubuntu-latest
+    name: Build Production
+    needs: setup
+
+    steps:
+      - name: Install dependencies
+        run: npm ci --omit-dev
+      - name: Build
+        run: npm run build:prod
+
   build:
     runs-on: ubuntu-latest
     name: Build
+    needs: build-prod
 
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 'lts/*'
-          cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build
         run: npm run build
 
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    needs: build
+
+    steps:
+      - name: Lint
+        run: npm run lint
+
+  test-coverage:
+    runs-on: ubuntu-latest
+    name: Test and Generate Coverage Report
+    needs: build
+
+    steps:
       - name: Test and generate coverage report
         run: npm run test:coverage
 
-      - name: Upload coverage reports to Codecov
+  upload-coverage:
+    runs-on: ubuntu-latest
+    name: Upload Coverage Report
+    needs: test-coverage
+
+    steps:
+      - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
